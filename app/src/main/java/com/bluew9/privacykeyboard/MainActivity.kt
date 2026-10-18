@@ -17,6 +17,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.SeekBar
 import android.widget.TextView
 
 class MainActivity : Activity() {
@@ -57,6 +58,23 @@ class MainActivity : Activity() {
                 (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
                     .showInputMethodPicker()
             }
+        })
+        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+        val pct = prefs.getInt("scale", 100).coerceIn(70, 170)
+        val sizeLabel = text("Keyboard size / حجم لوحة المفاتيح: $pct%", 15f, "#E6EDF3")
+        col.addView(sizeLabel)
+        col.addView(SeekBar(this).apply {
+            max = 100
+            progress = pct - 70
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar: SeekBar?, p: Int, fromUser: Boolean) {
+                    val v = 70 + p
+                    sizeLabel.text = "Keyboard size / حجم لوحة المفاتيح: $v%"
+                    prefs.edit().putInt("scale", v).apply()
+                }
+                override fun onStartTrackingTouch(bar: SeekBar?) {}
+                override fun onStopTrackingTouch(bar: SeekBar?) {}
+            })
         })
         col.addView(EditText(this).apply {
             hint = "Test here / جرّب هنا"

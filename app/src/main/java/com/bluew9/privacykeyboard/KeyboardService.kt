@@ -49,6 +49,7 @@ class KeyboardService : InputMethodService() {
     private var layer = Layer.LETTERS
     private var arabic = false
     private var shift = 0 // 0 = off, 1 = once, 2 = caps lock
+    private var scale = 1f // keyboard size, set from the app (70%..170%)
 
     private lateinit var root: LinearLayout
     private val handler = Handler(Looper.getMainLooper())
@@ -61,12 +62,15 @@ class KeyboardService : InputMethodService() {
             setBackgroundColor(BG)
             setPadding(dp(3), 0, dp(3), dp(6))
         }
+        loadScale()
         render()
         return root
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        val oldScale = scale
+        loadScale()
         if (!restarting) {
             val cls = (info?.inputType ?: 0) and InputType.TYPE_MASK_CLASS
             layer = if (cls == InputType.TYPE_CLASS_NUMBER || cls == InputType.TYPE_CLASS_PHONE) {
@@ -75,8 +79,13 @@ class KeyboardService : InputMethodService() {
                 Layer.LETTERS
             }
             shift = 0
-            if (::root.isInitialized) render()
         }
+        if (::root.isInitialized && (!restarting || oldScale != scale)) render()
+    }
+
+    private fun loadScale() {
+        val pct = getSharedPreferences("settings", MODE_PRIVATE).getInt("scale", 100)
+        scale = pct.coerceIn(70, 170) / 100f
     }
 
     // ---------- rendering ----------
@@ -178,7 +187,7 @@ class KeyboardService : InputMethodService() {
     private fun row(keys: List<View>): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, dp(50)
+            LinearLayout.LayoutParams.MATCH_PARENT, sdp(50)
         )
         keys.forEach { addView(it) }
     }
@@ -215,7 +224,7 @@ class KeyboardService : InputMethodService() {
         tv.text = label
         tv.gravity = Gravity.CENTER
         tv.setTextColor(textColor)
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, size)
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, size * (0.7f + 0.3f * scale))
         tv.background = rounded(normal)
         tv.layoutParams = LinearLayout.LayoutParams(
             0, LinearLayout.LayoutParams.MATCH_PARENT, weight
@@ -251,6 +260,8 @@ class KeyboardService : InputMethodService() {
     }
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
+
+    private fun sdp(v: Int): Int = (v * scale * resources.displayMetrics.density).toInt()
 
     // ---------- input actions ----------
 

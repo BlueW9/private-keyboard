@@ -43,7 +43,7 @@ private val PRIVACY = Color.parseColor("#5B8DB8")
 
 class KeyboardService : InputMethodService() {
 
-    private enum class Layer { LETTERS, SYM1, SYM2 }
+    private enum class Layer { LETTERS, SYM1, SYM2, EMOJI }
 
     // Held in memory only for the current session. Nothing is ever saved or sent anywhere.
     private var layer = Layer.LETTERS
@@ -102,8 +102,56 @@ class KeyboardService : InputMethodService() {
             Layer.LETTERS -> if (arabic) arabicRows() else englishRows()
             Layer.SYM1 -> symbolRows(false)
             Layer.SYM2 -> symbolRows(true)
+            Layer.EMOJI -> emojiRows()
         }
         root.addView(bottomRow())
+    }
+
+    private val emojiList: List<String> by lazy {
+        val p = android.graphics.Paint()
+        ("😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😝 😜 🤪 🤨 🧐 🤓 😎 🤩 🥳 😏 😒 😞 😔 😟 😕 🙁 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤬 🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤗 🤔 🤭 🤫 🤥 😶 😐 😑 😬 🙄 😯 😦 😧 😮 😲 🥱 😴 🤤 😪 😵 🤐 🥴 🤢 🤮 🤧 😷 🤒 🤕 " +
+            "👍 👎 👌 🤞 🤟 🤘 🤙 👈 👉 👆 👇 👋 🤚 ✋ 🖖 👏 🙌 👐 🤲 🤝 🙏 💪 " +
+            "💖 💗 💓 💞 💕 💘 💝 💔 🧡 💛 💚 💙 💜 🖤 🤍 🤎 ✨ 🔥 💯 💥 💫 💦 💤 " +
+            "🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🐔 🐧 🐦 🦆 🦅 🦉 🐺 🐴 🦄 🐝 🦋 🐌 🐢 🐍 🐙 🐬 🐳 🐟 " +
+            "🍎 🍐 🍊 🍋 🍌 🍉 🍇 🍓 🍒 🍑 🥭 🍍 🥥 🥝 🍅 🥑 🌽 🥕 🍞 🧀 🍳 🥞 🍔 🍟 🍕 🌭 🌮 🍝 🍜 🍣 🍦 🍩 🍪 🎂 🍫 🍬 ☕ 🍵 🥤 🍺 " +
+            "⚽ 🏀 🎮 🎧 🎵 📱 💻 📷 💡 🔑 🔒 🎁 🎉 🎈 📚 💰 🚗 🚀 🌍 🌙 ⭐ 🌟 🌞 🌈 ⚡ ✅ ❌ ❓ ❗ ⭕ 💢")
+            .split(" ").filter { it.isNotEmpty() && p.hasGlyph(it) }
+    }
+
+    private fun emojiCell(e: String): View = TextView(this).apply {
+        text = e
+        gravity = Gravity.CENTER
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f * (0.7f + 0.3f * scale))
+        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+        setOnClickListener {
+            performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            typeText(e)
+        }
+    }
+
+    private fun emojiRows() {
+        val perRow = 8
+        val rowH = sdp(46)
+        val grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        emojiList.chunked(perRow).forEach { chunk ->
+            val line = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, rowH)
+            }
+            chunk.forEach { line.addView(emojiCell(it)) }
+            repeat(perRow - chunk.size) {
+                line.addView(View(this).apply {
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+                })
+            }
+            grid.addView(line)
+        }
+        val scroll = android.widget.ScrollView(this).apply {
+            isVerticalScrollBarEnabled = false
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, rowH * 3)
+            addView(grid)
+        }
+        root.addView(scroll)
     }
 
     private fun privacyBar(): View = TextView(this).apply {
@@ -172,6 +220,10 @@ class KeyboardService : InputMethodService() {
                     arabic = !arabic
                     layer = Layer.LETTERS
                     shift = 0
+                    rerender()
+                },
+                key("😊", 1f, special = true) {
+                    layer = Layer.EMOJI
                     rerender()
                 },
                 key(comma, 1f) { typeText(comma) },
